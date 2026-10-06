@@ -1,0 +1,39 @@
+BUG: Witcher 3 Remastered (DX12) creates its D3D12 device on a Microsoft Basic Render Driver (WARP) adapter instead of the hardware GPU
+
+SUMMARY
+On a system with an NVIDIA RTX 3080, the game's D3D12 adapter selection accepts the Microsoft Basic Render Driver adapters (vendor 0x1414, device 0x008C) and creates the rendering device on one of them. Result: all rendering on the CPU, under 10 fps, hangs on load, and NGX/DLSS fails with "unsupported hw". Confirmed workaround: rejecting only the software-adapter capability probes makes the game select the RTX 3080 and run normally.
+
+BUILD / SYSTEM
+- Steam build 25646871, witcher3.exe 5.0.15.61352 (Hotfix 5.00c), DX12 (bin\x64_dx12), Streamline 2.14.1, bundled D3D12Core (D3D12_0)
+- Windows 11 Home (fails on 25H2 build 26200 and 26H2)
+- RTX 3080 10 GB, driver 617.14 | Ryzen 7 7700X (iGPU enabled) | 32 GB RAM
+- Displays on a DisplayLink USB-C dock (also fails with the monitor directly on the RTX 3080)
+
+DXGI ADAPTERS ON THIS SYSTEM
+[0] NVIDIA GeForce RTX 3080            FL 11_0–12_2 OK
+[1] AMD Radeon Graphics (iGPU)         FL 11_0–12_1 OK
+[2] NVIDIA GeForce RTX 3080 (second entry, DisplayLink cross-adapter)
+[3] Microsoft Basic Render Driver      0x1414/0x008C, flags 0, FL 11_0–12_1 OK
+[4] Microsoft Basic Render Driver      0x1414/0x008C, DXGI_ADAPTER_FLAG_SOFTWARE, FL 11_0–12_1 OK
+
+ROOT CAUSE (adapter selection)
+- D3D12CreateDevice capability probes (ppDevice == NULL) return S_FALSE for the NVIDIA adapter AND both Basic Render Driver adapters. S_FALSE is success per Microsoft docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-d3d12createdevice
+- The game then creates its real device on a Basic Render Driver adapter.
+- Windows GPU engine counters: all witcher3.exe 3D work on the Basic Render adapter (0 MB VRAM), none on the RTX 3080; 4–11 CPU cores busy at the main menu.
+
+WORKAROUND (confirmed on this system)
+A Frida hook on d3d12!D3D12CreateDevice returns DXGI_ERROR_UNSUPPORTED (0x887A0004) only for probes (ppDevice == NULL) where the adapter's DXGI_ADAPTER_DESC is VendorId 0x1414 / DeviceId 0x008C. Two probes were rejected. The game then selected the RTX 3080 itself: 3.1 GB VRAM in use, normal CPU usage, witcher3.exe in NVIDIA's graphics process list, NGX/DLSS initializes. (First traced by another player on the Steam forums; reproduced here.)
+
+SUGGESTED FIX
+In adapter enumeration/selection, skip adapters with DXGI_ADAPTER_FLAG_SOFTWARE and Microsoft vendor ID 0x1414 (Basic Render Driver also appears with flags 0) whenever a hardware adapter passes the same probe. Alternatively, use IDXGIFactory6::EnumAdapterByGpuPreference(DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE) and take the first hardware adapter that succeeds.
+
+RULED OUT (still fails after each)
+System Restore to the last working date (Oct 1) | offline launch | iGPU disabled | monitor directly on the RTX 3080 | ray tracing off / default dx12user.settings | all overlays off | Windows GPU preference set to the RTX 3080 | Steam integration (bin\ddi\Steam.dll) disabled | DisplayLink 12.2 and 12.3 | NVIDIA driver reinstall | full game reinstall and verify.
+Other DX12 titles (e.g. an Unreal Engine game) use the RTX 3080 normally on this system.
+
+TIMELINE
+Worked Oct 1 and the morning of Oct 2. Failing since Oct 4 (reinstalled that day; build 25646871). A similar hang on Sep 29 (launch day) cleared after a reboot.
+
+QUESTIONS
+1. Did the Steam build or the adapter-selection logic change between Oct 2 and Oct 4?
+2. Can a launch argument or config option force a specific adapter until a patch ships?
