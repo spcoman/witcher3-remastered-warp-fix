@@ -12,9 +12,9 @@
 
 With the game at the main menu, open **Task Manager**:
 
-- `witcher3.exe` uses a lot of CPU (several cores), and
-- your graphics card's usage and video memory barely move.
-- you're getting <10 fps and are stuck in a loading screen
+- `witcher3.exe` uses a lot of CPU (several cores),
+- your graphics card's usage and video memory barely move, and
+- you're getting under 10 fps or stuck on a loading screen.
 
 If these are true, you may have this bug.
 
