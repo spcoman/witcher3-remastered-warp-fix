@@ -63,6 +63,21 @@ Confirmed working here: with the launcher, the game used the RTX 3080 (about 3.1
 
 **Read any script before you run it.** Windows Defender may flag Frida because it hooks into other programs.
 
+### Known issue: crash a few minutes after launch
+
+If the script calls `session.detach()` after a timer (the original detaches after 60 seconds), the game can crash later with an access violation (`0xc0000005`) in **`frida-agent.dll_unloaded`**. Detaching unloads Frida's agent, but Windows can still call into it afterwards (for example its DLL-load observer), and the next DLL the game loads triggers the crash. In testing, the game's own crash record showed it crashing right as the detach timer ran out.
+
+**Fix:** stay attached until the game exits. Replace the `time.sleep(...)` and `session.detach()` lines at the end of the script with:
+
+```python
+ended = []
+session.on('detached', lambda reason, crash: ended.append(reason))
+while not ended:
+    time.sleep(2)
+```
+
+Keep the launcher window open while you play. Closing it detaches the hook mid-game and can cause the same crash.
+
 ## Suggested fix for the developer
 
 Skip adapters with `DXGI_ADAPTER_FLAG_SOFTWARE`, and Microsoft vendor ID `0x1414` (the Basic Render Driver also appears with flags `0`), whenever a hardware adapter passes the same check. Alternatively, use `IDXGIFactory6::EnumAdapterByGpuPreference(DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE)` and take the first hardware adapter that succeeds.
