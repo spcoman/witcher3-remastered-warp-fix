@@ -1,10 +1,12 @@
-# [Witcher 3 Remastered][DX12] Game renders on WARP software adapter instead of hardware GPU
+﻿# [Witcher 3 Remastered][DX12] Game renders on WARP software adapter instead of hardware GPU
 
-**Symptom:** after a few days of normal play, *The Witcher 3: Wild Hunt — Remastered* (Steam, DX12, Hotfix 5.00c) runs at under 10 fps and hangs on every loading screen. The graphics card sits idle while the CPU is maxed out.
+> **âœ… Fixed in Patch 5.01** (Steam build 25773555, Oct 8, 2026). CD Projekt Red's [patch notes](https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/1846018067929400) include *"Fixed an issue where the game could sometimes select the wrong GPU."* Confirmed here: after updating, the game runs on the GPU when launched normally from Steam. **Update the game and stop using the workaround below.** The rest of this page is kept as a record of the diagnosis.
+
+**Symptom:** after a few days of normal play, *The Witcher 3: Wild Hunt â€” Remastered* (Steam, DX12, Hotfix 5.00c) runs at under 10 fps and hangs on every loading screen. The graphics card sits idle while the CPU is maxed out.
 
 **Cause:** the game picks a **Microsoft Basic Render Driver** adapter (Windows' built-in software renderer, vendor `0x1414`, device `0x008C`) instead of the real GPU. Every frame is drawn on the CPU, and NVIDIA DLSS fails to start.
 
-**Status:** reported to CD Projekt Red. A community workaround (below) works until they ship a fix.
+**Status:** fixed by CD Projekt Red in Patch 5.01. Before the patch, a community workaround (below) worked around it.
 
 > Not affiliated with CD Projekt Red or NVIDIA. Use at your own risk.
 
@@ -39,7 +41,7 @@ Tested on Windows 11 with an RTX 3080, a Ryzen 7000 CPU with integrated graphics
 
 Full details are in [`bug_report.txt`](bug_report.txt), the report sent to CD Projekt Red.
 
-## Workaround
+## Workaround (no longer needed after Patch 5.01)
 
 A Steam Community member traced the game's `D3D12CreateDevice` calls and wrote a small launcher. It uses [Frida](https://frida.re) to make only the Microsoft software-adapter capability checks report "unsupported". The game then picks the real GPU on its own. It changes nothing permanently on your PC and only affects that launch.
 
